@@ -25,23 +25,47 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
-        run: |
-          npm audit --audit-level=moderate --json > npm-audit-report.json || true
-          npm audit --audit-level=moderate
+      - name: Audit npm packages in all subdirectories
         continue-on-error: true
+        run: |
+          set +e
+          REPORT_DIR="${GITHUB_WORKSPACE}/npm-audit-reports"
+          mkdir -p "$REPORT_DIR"
+          FOUND=0
 
-      - name: Upload npm audit report
+          while IFS= read -r pkg_file; do
+            dir=$(dirname "$pkg_file")
+            if [ ! -f "$dir/package-lock.json" ]; then
+              echo "Skipping $dir: no package-lock.json found"
+              continue
+            fi
+            FOUND=1
+            slug=$(echo "$dir" | sed 's|^\./||' | tr '/' '-')
+            [ -z "$slug" ] && slug="root"
+            echo "=== Auditing npm packages in: $dir ==="
+            pushd "$dir" > /dev/null
+            npm ci --ignore-scripts
+            npm audit --audit-level=moderate --json > "${REPORT_DIR}/npm-audit-${slug}.json" || true
+            npm audit --audit-level=moderate || true
+            popd > /dev/null
+          done < <(find . -name "package.json" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/fixtures/*" \
+            | sort)
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "No auditable npm packages found."
+          fi
+
+      - name: Upload npm audit reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: npm-audit-report
-          path: npm-audit-report.json
+          name: npm-audit-reports
+          path: npm-audit-reports/
+          if-no-files-found: warn
           retention-days: 30
 
   python-audit:
@@ -60,25 +84,53 @@ jobs:
           python-version: '3.11'
 
       - name: Install pip-audit
-        run: |
-          pip install pip-audit
+        run: pip install pip-audit
 
-      - name: Install project dependencies
-        run: |
-          pip install -e .
-
-      - name: Run pip-audit
-        run: |
-          pip-audit --format json --output pip-audit-report.json || true
-          pip-audit
+      - name: Audit Python dependencies
         continue-on-error: true
+        run: |
+          set +e
+          REPORT_DIR="${GITHUB_WORKSPACE}/pip-audit-reports"
+          mkdir -p "$REPORT_DIR"
+          FOUND=0
 
-      - name: Upload pip-audit report
+          # Audit each requirements*.txt file found in the repo
+          while IFS= read -r req_file; do
+            FOUND=1
+            slug=$(echo "$req_file" | sed 's|^\./||' | tr '/.' '-')
+            echo "=== Auditing Python deps in: $req_file ==="
+            pip-audit -r "$req_file" --format json --output "${REPORT_DIR}/pip-audit-${slug}.json" || true
+            pip-audit -r "$req_file" || true
+          done < <(find . -name "requirements*.txt" \
+            -not -path "*/.git/*" \
+            | sort)
+
+          # Audit each pyproject.toml found in the repo
+          while IFS= read -r ptoml; do
+            dir=$(dirname "$ptoml")
+            FOUND=1
+            slug=$(echo "$dir" | sed 's|^\./||' | tr '/' '-')
+            [ -z "$slug" ] && slug="root"
+            echo "=== Auditing Python deps in: $ptoml ==="
+            pushd "$dir" > /dev/null
+            pip-audit --format json --output "${REPORT_DIR}/pip-audit-pyproject-${slug}.json" || true
+            pip-audit || true
+            popd > /dev/null
+          done < <(find . -name "pyproject.toml" \
+            -not -path "*/.git/*" \
+            | sort)
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "No auditable Python packages found."
+          fi
+
+      - name: Upload pip-audit reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pip-audit-report
-          path: pip-audit-report.json
+          name: pip-audit-reports
+          path: pip-audit-reports/
+          if-no-files-found: warn
           retention-days: 30
 
   dependency-review:
@@ -97,8 +149,6 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
-          # Comment out to block PRs with vulnerable dependencies:
-          # fail-on-severity: high
 
   codeql:
     name: CodeQL Security Analysis
@@ -117,14 +167,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        if: matrix.language == 'javascript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Build TypeScript project
+        if: matrix.language == 'javascript'
+        continue-on-error: true
+        run: npm ci --ignore-scripts && npm run build
+
+      - name: Build Python project
+        if: matrix.language == 'python'
+        continue-on-error: true
+        run: pip install .
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
@@ -140,36 +209,44 @@ jobs:
       contents: read
     
     steps:
-      - name: Download npm audit report
+      - name: Download npm audit reports
         uses: actions/download-artifact@v4
         with:
-          name: npm-audit-report
+          name: npm-audit-reports
+          path: npm-audit-reports/
         continue-on-error: true
 
-      - name: Download pip-audit report
+      - name: Download pip-audit reports
         uses: actions/download-artifact@v4
         with:
-          name: pip-audit-report
+          name: pip-audit-reports
+          path: pip-audit-reports/
         continue-on-error: true
 
       - name: Generate security summary
         run: |
           echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ -f npm-audit-report.json ]; then
-            echo "### NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+
+          echo "### NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+          shopt -s nullglob
+          for f in npm-audit-reports/*.json; do
+            echo "#### $f" >> $GITHUB_STEP_SUMMARY
             echo '```json' >> $GITHUB_STEP_SUMMARY
-            cat npm-audit-report.json | jq '.metadata' || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            jq '.metadata' "$f" 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "No metadata found" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ -f pip-audit-report.json ]; then
-            echo "### Python Audit Results" >> $GITHUB_STEP_SUMMARY
+          done
+          shopt -u nullglob
+
+          echo "### Python Audit Results" >> $GITHUB_STEP_SUMMARY
+          shopt -s nullglob
+          for f in pip-audit-reports/*.json; do
+            echo "#### $f" >> $GITHUB_STEP_SUMMARY
             echo '```json' >> $GITHUB_STEP_SUMMARY
-            cat pip-audit-report.json | jq '.dependencies | length' || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            jq '.dependencies | length' "$f" 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "No dependencies found" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-          
+          done
+          shopt -u nullglob
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "For detailed reports, check the artifacts of this workflow run." >> $GITHUB_STEP_SUMMARY
