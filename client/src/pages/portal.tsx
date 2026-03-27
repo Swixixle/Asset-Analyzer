@@ -16,7 +16,7 @@ export default function Portal() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="p-6 text-sm text-muted-foreground animate-pulse">
-        Redirecting to Analyzer…
+        Redirecting to Debrief…
       </div>
     </div>
   );

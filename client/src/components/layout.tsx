@@ -1,9 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { Terminal, Activity, Github } from "lucide-react";
+import { Terminal, Github } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+
+  useEffect(() => {
+    document.title = "Debrief";
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
@@ -14,14 +19,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Terminal className="w-5 h-5 text-primary" />
             </div>
             <div className="flex flex-col">
-              <span className="font-display font-bold text-lg leading-none tracking-tight">TOTALITY</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">Analyzer v1.0</span>
+              <span className="font-display font-bold text-lg leading-none tracking-tight">Debrief</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">Evidence-backed briefs</span>
             </div>
           </Link>
 
           <nav className="flex items-center gap-1 md:gap-2">
             <NavLink href="/" active={location === "/"}>
-              New Analysis
+              New debrief
             </NavLink>
             <NavLink href="/projects" active={location.startsWith("/projects")}>
               Archives
@@ -52,7 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <p className="font-mono">
             <span className="text-primary">SYSTEM:</span> ONLINE
           </p>
-          <p>© 2025 Totality Systems. All rights reserved.</p>
+          <p>© 2025 Debrief. All rights reserved.</p>
         </div>
       </footer>
     </div>

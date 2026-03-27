@@ -56,12 +56,11 @@ export default function Home() {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50 pb-2">
-            Program Totality <br />
-            <span className="text-primary text-glow">Analyzer</span>
+            Debrief
           </h1>
           
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Input a GitHub repository or analyze this Replit workspace to generate a comprehensive technical dossier.
+            Analyze a GitHub repository or this workspace to generate a signed, evidence-anchored brief your whole team can use.
           </p>
 
           <Card className="p-2 mt-8 bg-background/50 backdrop-blur-sm border-white/10 shadow-2xl shadow-primary/5 max-w-2xl mx-auto w-full">
