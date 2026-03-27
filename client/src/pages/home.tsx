@@ -1,148 +1,179 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useCreateProject, useAnalyzeReplit } from "@/hooks/use-projects";
+import { useCreateProject, triggerProjectAnalysis } from "@/hooks/use-projects";
 import { Layout } from "@/components/layout";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowRight, Github, Code2, Cpu, Terminal, ExternalLink } from "lucide-react";
-import { motion } from "framer-motion";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
+import { useDebriefApiKey } from "@/contexts/DebriefApiKeyContext";
+
+function validateRepoUrl(url: string): string | null {
+  const t = url.trim();
+  if (!t) return "Enter a GitHub repository URL.";
+  let u: URL;
+  try {
+    u = new URL(t);
+  } catch {
+    return "That doesn't look like a valid URL.";
+  }
+  const host = u.hostname.replace(/^www\./i, "");
+  if (host !== "github.com") return "Only github.com URLs are supported.";
+  const parts = u.pathname.replace(/^\/|\/$/g, "").split("/").filter(Boolean);
+  if (parts.length < 2) return "Use a URL like https://github.com/username/repo";
+  return null;
+}
+
+function normalizeRepoUrl(url: string): string {
+  const u = new URL(url.trim());
+  const parts = u.pathname.replace(/^\/|\/$/g, "").split("/").filter(Boolean);
+  return `https://github.com/${parts[0]}/${parts[1]}`;
+}
 
 export default function Home() {
-  const [url, setUrl] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [label, setLabel] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const { setApiKey } = useDebriefApiKey();
   const [, setLocation] = useLocation();
   const createProject = useCreateProject();
-  const analyzeReplit = useAnalyzeReplit();
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url) return;
-    
-    const name = url.split("/").pop() || "Unknown Repo";
-    
-    createProject.mutate(
-      { url, name },
-      {
-        onSuccess: (project) => {
-          setLocation(`/projects/${project.id}`);
-        },
-      }
-    );
+  const syncKeyToContext = () => {
+    setApiKey(apiKeyInput);
   };
 
-  const handleAnalyzeReplit = () => {
-    analyzeReplit.mutate(undefined, {
-      onSuccess: (project) => {
-        setLocation(`/projects/${project.id}`);
-      },
-    });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInlineError(null);
+    const key = apiKeyInput.trim();
+    if (!key) {
+      setInlineError("An API key is required. Contact us to get access.");
+      return;
+    }
+    syncKeyToContext();
+    const name = label.trim() || repoUrl.trim().split("/").filter(Boolean).pop() || "Repository";
+    const urlErr = validateRepoUrl(repoUrl);
+    if (urlErr) {
+      setInlineError(urlErr);
+      return;
+    }
+    const normalizedUrl = normalizeRepoUrl(repoUrl);
+
+    setSubmitting(true);
+    try {
+      const project = await createProject.mutateAsync({
+        url: normalizedUrl,
+        name,
+        mode: "github",
+        apiKey: key,
+      });
+      await triggerProjectAnalysis(project.id, key);
+      setLocation(`/projects/${project.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setInlineError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Layout>
-      <div className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[70vh] text-center">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="space-y-6"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/50 border border-primary/20 text-xs text-primary font-mono mb-4">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            SYSTEM READY FOR INPUT
-          </div>
+    <Layout variant="light">
+      <div className="max-w-3xl mx-auto text-center px-4">
+        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-slate-900 leading-tight">
+          Know exactly what you&apos;re working with.
+        </h1>
+        <p className="mt-6 text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto">
+          Debrief analyzes any codebase and produces a signed, evidence-anchored brief you can act on.
+        </p>
 
-          <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50 pb-2">
-            Debrief
-          </h1>
-          
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Analyze a GitHub repository or this workspace to generate a signed, evidence-anchored brief your whole team can use.
-          </p>
+        <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+          <ValueProp text="30 minutes. Not 30 days." />
+          <ValueProp text="Plain language. Not developer jargon." />
+          <ValueProp text={'Signed evidence. Not someone\'s opinion.'} />
+        </div>
 
-          <Card className="p-2 mt-8 bg-background/50 backdrop-blur-sm border-white/10 shadow-2xl shadow-primary/5 max-w-2xl mx-auto w-full">
-            <form onSubmit={handleSubmit} className="flex gap-2 p-1">
-              <div className="relative flex-1">
-                <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input 
-                  data-testid="input-github-url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://github.com/username/repository"
-                  className="pl-10 h-12 bg-secondary/30 border-transparent focus:border-primary/50 text-base font-mono placeholder:text-muted-foreground/50 transition-all"
-                  autoFocus
-                />
-              </div>
-              <Button 
-                data-testid="button-analyze-github"
-                type="submit" 
-                disabled={createProject.isPending}
-              >
-                {createProject.isPending ? "Initializing..." : "Analyze"}
-                {!createProject.isPending && <ArrowRight className="ml-2 w-4 h-4" />}
-              </Button>
-            </form>
-          </Card>
+        <div className="mt-16 rounded-2xl border border-slate-200 bg-slate-50/80 p-8 md:p-10 text-left shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">Settings</p>
+          <Label htmlFor="api-key" className="text-slate-800 text-sm font-medium">
+            Enter your API key to get started
+          </Label>
+          <Input
+            id="api-key"
+            type="password"
+            autoComplete="off"
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            className="mt-2 h-11 bg-white border-slate-300 text-slate-900"
+            placeholder="Your API key"
+          />
+          {!apiKeyInput.trim() && (
+            <p className="mt-2 text-sm text-slate-600">An API key is required. Contact us to get access.</p>
+          )}
 
-          <div className="flex items-center gap-4 max-w-2xl mx-auto w-full">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div>
+              <Label htmlFor="repo-url" className="text-slate-800 text-sm font-medium">
+                GitHub repository
+              </Label>
+              <Input
+                id="repo-url"
+                data-testid="input-github-url"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/username/repo"
+                className="mt-2 h-12 text-base bg-white border-slate-300 text-slate-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="repo-label" className="text-slate-800 text-sm font-medium">
+                Name / label
+              </Label>
+              <Input
+                id="repo-label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="My project"
+                className="mt-2 h-12 text-base bg-white border-slate-300 text-slate-900"
+              />
+            </div>
 
-          <Button 
-            data-testid="button-analyze-replit"
-            variant="outline"
-            disabled={analyzeReplit.isPending}
-            onClick={handleAnalyzeReplit}
-          >
-            <Terminal className="mr-2 w-5 h-5" />
-            {analyzeReplit.isPending ? "Scanning Workspace..." : "Analyze This Workspace"}
-          </Button>
+            {inlineError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert">
+                {inlineError}
+              </p>
+            )}
 
-          <a 
-            href="/portal"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover-elevate active-elevate-2 border border-primary/30 bg-primary/10 text-primary px-4 py-2 transition-all"
-            data-testid="button-portal-link"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open Portal (Direct Link)
-          </a>
+            <Button
+              type="submit"
+              data-testid="button-run-debrief"
+              disabled={submitting || createProject.isPending}
+              className="w-full h-12 text-base font-semibold bg-slate-900 text-white hover:bg-slate-800"
+            >
+              {submitting || createProject.isPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Running Debrief on your repo…
+                </span>
+              ) : (
+                "Run Debrief"
+              )}
+            </Button>
+          </form>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 text-left">
-            <FeatureCard 
-              icon={<Code2 className="w-6 h-6 text-primary" />}
-              title="Code Synthesis"
-              description="Deep static analysis of codebase architecture and patterns."
-            />
-            <FeatureCard 
-              icon={<Search className="w-6 h-6 text-primary" />}
-              title="Claim Verification"
-              description="Cross-reference README claims with actual implementation details."
-            />
-            <FeatureCard 
-              icon={<Cpu className="w-6 h-6 text-primary" />}
-              title="Operational Intel"
-              description="Generate step-by-step execution guides and deployment strategies."
-            />
-          </div>
-        </motion.div>
+        <p className="mt-8 text-sm text-slate-500">Supports any public GitHub repository</p>
       </div>
     </Layout>
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+function ValueProp({ text }: { text: string }) {
   return (
-    <div className="p-6 rounded-2xl bg-secondary/20 border border-white/5 hover:border-primary/20 hover:bg-secondary/30 transition-all duration-300 group">
-      <div className="mb-4 p-3 rounded-lg bg-background w-fit group-hover:text-glow transition-all">
-        {icon}
-      </div>
-      <h3 className="text-lg font-semibold mb-2 text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
-    </div>
+    <p className="text-base md:text-lg font-medium text-slate-800 leading-snug border-l-4 border-slate-300 pl-4">
+      {text}
+    </p>
   );
 }

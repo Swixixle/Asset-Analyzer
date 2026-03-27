@@ -1,14 +1,85 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { api, buildUrl } from "@shared/routes";
-import { type InsertProject, type Project, type Analysis } from "@shared/schema";
+import { type Project, type Analysis } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useDebriefApiKey } from "@/contexts/DebriefApiKeyContext";
+
+function authHeaders(apiKey: string): HeadersInit {
+  const h: Record<string, string> = {};
+  if (apiKey) h["X-Api-Key"] = apiKey;
+  return h;
+}
+
+/** Polls project + analysis every 3s until analysis exists, project fails, or 5 minutes elapse. */
+export function useAnalysisStatus(projectId: number) {
+  const { apiKey } = useDebriefApiKey();
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    startRef.current = Date.now();
+  }, [projectId]);
+
+  const enabled = Number.isFinite(projectId) && projectId > 0 && !!apiKey;
+
+  return useQuery({
+    queryKey: ["analysisStatus", projectId, apiKey],
+    enabled,
+    queryFn: async (): Promise<{ project: Project; analysis: Analysis | null }> => {
+      const hdr = authHeaders(apiKey);
+      const pUrl = buildUrl(api.projects.get.path, { id: projectId });
+      const pRes = await fetch(pUrl, { headers: hdr });
+      if (pRes.status === 401) throw new Error("Invalid API key");
+      if (pRes.status === 404) {
+        return { project: null as unknown as Project, analysis: null };
+      }
+      if (!pRes.ok) throw new Error("Failed to load project");
+      const project = (await pRes.json()) as Project;
+
+      const aUrl = buildUrl(api.projects.getAnalysis.path, { id: projectId });
+      const aRes = await fetch(aUrl, { headers: hdr });
+      let analysis: Analysis | null = null;
+      if (aRes.status === 200) {
+        analysis = (await aRes.json()) as Analysis;
+      } else if (aRes.status === 401) {
+        throw new Error("Invalid API key");
+      } else if (aRes.status !== 404) {
+        throw new Error("Failed to load analysis");
+      }
+
+      const elapsed = Date.now() - startRef.current;
+      if (
+        elapsed > 5 * 60 * 1000 &&
+        !analysis &&
+        project.status !== "failed"
+      ) {
+        throw new Error("Analysis timed out after 5 minutes. Please try again.");
+      }
+
+      return { project, analysis };
+    },
+    refetchInterval: (query) => {
+      if (!enabled) return false;
+      if (query.state.error) return false;
+      if (Date.now() - startRef.current > 5 * 60 * 1000) return false;
+      const d = query.state.data;
+      if (!d) return 3000;
+      if (d.analysis) return false;
+      if (d.project?.status === "failed") return false;
+      return 3000;
+    },
+  });
+}
 
 // GET /api/projects
 export function useProjects() {
+  const { apiKey } = useDebriefApiKey();
   return useQuery({
-    queryKey: [api.projects.list.path],
+    queryKey: [api.projects.list.path, apiKey],
+    enabled: !!apiKey,
     queryFn: async () => {
-      const res = await fetch(api.projects.list.path);
+      const res = await fetch(api.projects.list.path, { headers: authHeaders(apiKey) });
+      if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error("Failed to fetch projects");
       return api.projects.list.responses[200].parse(await res.json());
     },
@@ -17,20 +88,22 @@ export function useProjects() {
 
 // GET /api/projects/:id
 export function useProject(id: number) {
+  const { apiKey } = useDebriefApiKey();
   return useQuery({
-    queryKey: [api.projects.get.path, id],
+    queryKey: [api.projects.get.path, id, apiKey],
+    enabled: !!id && id > 0 && !!apiKey,
     queryFn: async () => {
       const url = buildUrl(api.projects.get.path, { id });
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: authHeaders(apiKey) });
       if (res.status === 404) return null;
+      if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error("Failed to fetch project");
       return api.projects.get.responses[200].parse(await res.json());
     },
     refetchInterval: (query) => {
-      // Poll if status is pending or analyzing
       const data = query.state.data as Project | undefined;
-      if (data && (data.status === 'pending' || data.status === 'analyzing')) {
-        return 2000; // Poll every 2 seconds
+      if (data && (data.status === "pending" || data.status === "analyzing")) {
+        return 2000;
       }
       return false;
     },
@@ -39,30 +112,41 @@ export function useProject(id: number) {
 
 // GET /api/projects/:id/analysis
 export function useAnalysis(projectId: number) {
+  const { apiKey } = useDebriefApiKey();
   return useQuery({
-    queryKey: [api.projects.getAnalysis.path, projectId],
+    queryKey: [api.projects.getAnalysis.path, projectId, apiKey],
+    enabled: !!projectId && projectId > 0 && !!apiKey,
     queryFn: async () => {
       const url = buildUrl(api.projects.getAnalysis.path, { id: projectId });
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: authHeaders(apiKey) });
       if (res.status === 404) return null;
+      if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error("Failed to fetch analysis");
       return api.projects.getAnalysis.responses[200].parse(await res.json());
     },
-    enabled: !!projectId, // Only fetch if we have an ID
   });
 }
 
-// POST /api/projects
+type CreateProjectInput = {
+  url: string;
+  name: string;
+  /** Server accepts github | local | replit — use `github` for public GitHub repos */
+  mode?: "github" | "local" | "replit";
+  apiKey: string;
+};
+
+// POST /api/projects (caller must trigger analyze separately with the same API key)
 export function useCreateProject() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: InsertProject) => {
+    mutationFn: async (input: CreateProjectInput) => {
+      const { apiKey, mode = "github", url, name } = input;
       const res = await fetch(api.projects.create.path, {
         method: api.projects.create.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json", ...authHeaders(apiKey) },
+        body: JSON.stringify({ url, name, mode }),
       });
 
       if (!res.ok) {
@@ -70,41 +154,50 @@ export function useCreateProject() {
           const error = api.projects.create.responses[400].parse(await res.json());
           throw new Error(error.message);
         }
+        if (res.status === 401) throw new Error("Invalid API key");
         throw new Error("Failed to create project");
       }
       return api.projects.create.responses[201].parse(await res.json());
     },
-    onSuccess: (project) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.projects.list.path] });
       toast({
-        title: "Project Initialized",
-        description: "Analysis sequence starting...",
+        title: "Project created",
+        description: "Starting analysis…",
       });
-      // Immediately trigger analysis
-      fetch(buildUrl(api.projects.analyze.path, { id: project.id }), {
-        method: api.projects.analyze.method
-      }).catch(console.error);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Initialization Failed",
+        title: "Request failed",
         description: error.message,
       });
     },
   });
 }
 
+export async function triggerProjectAnalysis(projectId: number, apiKey: string): Promise<void> {
+  const url = buildUrl(api.projects.analyze.path, { id: projectId });
+  const res = await fetch(url, {
+    method: api.projects.analyze.method,
+    headers: authHeaders(apiKey),
+  });
+  if (res.status === 401) throw new Error("Invalid API key");
+  if (!res.ok && res.status !== 202) throw new Error("Failed to start analysis");
+}
+
 export function useAnalyzeReplit() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { apiKey } = useDebriefApiKey();
 
   return useMutation({
     mutationFn: async (): Promise<Project> => {
       const res = await fetch(api.projects.analyzeReplit.path, {
         method: api.projects.analyzeReplit.method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders(apiKey) },
       });
+      if (res.status === 401) throw new Error("Invalid API key");
       if (!res.ok) throw new Error("Failed to start Replit workspace analysis");
       const data = await res.json();
       return data as Project;
@@ -116,7 +209,7 @@ export function useAnalyzeReplit() {
         description: "Scanning this Replit workspace...",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Workspace Analysis Failed",
@@ -130,20 +223,19 @@ export function useAnalyzeReplit() {
 export function useTriggerAnalysis() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { apiKey } = useDebriefApiKey();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const url = buildUrl(api.projects.analyze.path, { id });
-      const res = await fetch(url, { method: api.projects.analyze.method });
-      if (!res.ok && res.status !== 202) throw new Error("Failed to trigger analysis");
-      return res.json();
+      await triggerProjectAnalysis(id, apiKey);
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: [api.projects.get.path, id] });
+      queryClient.invalidateQueries({ queryKey: ["analysisStatus", id] });
       toast({
         title: "Analysis Queued",
         description: "The system is processing the repository.",
       });
-    }
+    },
   });
 }

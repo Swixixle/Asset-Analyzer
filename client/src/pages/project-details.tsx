@@ -1,5 +1,5 @@
 import { useRoute, Link } from "wouter";
-import { useProject, useAnalysis } from "@/hooks/use-projects";
+import { useAnalysisStatus } from "@/hooks/use-projects";
 import { Layout } from "@/components/layout";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,30 +8,89 @@ import { DebriefReport } from "@/components/DebriefReport";
 import { Loader2, AlertTriangle, ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useDebriefApiKey } from "@/contexts/DebriefApiKeyContext";
 
 export default function ProjectDetails() {
   const [match, params] = useRoute("/projects/:id");
-  const projectId = parseInt(params?.id || "0");
-  const { data: project, isLoading: projectLoading } = useProject(projectId);
-  const { data: analysis, isLoading: analysisLoading } = useAnalysis(projectId);
+  const projectId = parseInt(params?.id || "0", 10);
+  const { apiKey } = useDebriefApiKey();
+  const { data, isPending, isError, error } = useAnalysisStatus(projectId);
   const [rawOpen, setRawOpen] = useState(false);
 
-  if (projectLoading) return <LoadingScreen message="Loading project data..." />;
+  if (!apiKey) {
+    return (
+      <Layout>
+        <div className="max-w-lg mx-auto text-center py-20 px-4">
+          <Card className="border-border">
+            <CardContent className="pt-8 pb-8 space-y-4">
+              <h2 className="text-lg font-semibold">API key required</h2>
+              <p className="text-muted-foreground text-sm">
+                An API key is required. Open the home page, enter your key under Settings, then run a debrief. Keys stay in memory for this session only.
+              </p>
+              <Link href="/">
+                <Button variant="default">Go to home</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
-  if (!project) {
+  if (!projectId || isNaN(projectId)) {
     return (
       <Layout>
         <div className="text-center py-20">
-          <h2 className="text-xl font-bold">Project Not Found</h2>
+          <h2 className="text-xl font-bold">Invalid project</h2>
           <Link href="/">
-            <div className="text-primary mt-4 cursor-pointer">Return Home</div>
+            <span className="text-primary mt-4 inline-block cursor-pointer">Return home</span>
           </Link>
         </div>
       </Layout>
     );
   }
 
-  const isAnalyzing = project.status === "analyzing" || project.status === "pending";
+  if (isPending && !data) {
+    return <LoadingScreen message="Loading project…" />;
+  }
+
+  if (isError) {
+    return (
+      <Layout>
+        <div className="max-w-xl mx-auto py-16 px-4">
+          <Card className="border-destructive/40 bg-destructive/5">
+            <CardContent className="pt-8 pb-8 text-center space-y-2">
+              <p className="text-destructive font-medium">{error?.message || "Something went wrong"}</p>
+              <Link href="/">
+                <span className="text-primary text-sm cursor-pointer">Return home</span>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  const project = data?.project;
+  const analysis = data?.analysis;
+
+  if (!project) {
+    return (
+      <Layout>
+        <div className="text-center py-20">
+          <h2 className="text-xl font-bold">Project not found</h2>
+          <Link href="/projects">
+            <span className="text-primary mt-4 inline-block cursor-pointer">Back to archives</span>
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  const waitingForAnalysis =
+    project.status === "pending" ||
+    project.status === "analyzing" ||
+    (project.status === "completed" && !analysis);
 
   return (
     <Layout>
@@ -58,18 +117,16 @@ export default function ProjectDetails() {
           </div>
         </div>
 
-        {isAnalyzing ? (
-          <AnalyzingState />
-        ) : project.status === "failed" ? (
+        {project.status === "failed" ? (
           <Card className="border-destructive/50 bg-destructive/10">
             <CardContent className="pt-6 text-center text-destructive">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-              <h3 className="text-lg font-bold mb-2">Analysis Failed</h3>
-              <p>Debrief could not complete analysis for this repository.</p>
+              <h3 className="text-lg font-bold mb-2">Analysis failed</h3>
+              <p>Analysis failed — please check the repo URL and try again.</p>
             </CardContent>
           </Card>
-        ) : analysisLoading ? (
-          <LoadingScreen message="Loading Debrief…" />
+        ) : waitingForAnalysis ? (
+          <AnalyzingState />
         ) : analysis ? (
           <div className="space-y-8 pb-16">
             <DebriefReport project={{ name: project.name, url: project.url }} analysis={analysis} />
@@ -99,7 +156,7 @@ export default function ProjectDetails() {
         ) : (
           <Card>
             <CardContent className="pt-6 text-center text-muted-foreground">
-              <p>No analysis record found for this project.</p>
+              <p>No analysis record found yet.</p>
               <Link href="/projects">
                 <Button className="mt-4" variant="outline">
                   Back to archives
@@ -125,34 +182,13 @@ function LoadingScreen({ message }: { message: string }) {
 }
 
 function AnalyzingState() {
-  const steps = [
-    "Cloning repository…",
-    "Scanning file structure…",
-    "Analyzing dependencies… synthesizing brief…",
-    "Anchoring evidence…",
-  ];
-
   return (
-    <div className="h-[560px] flex flex-col items-center justify-center text-center px-4">
-      <div className="relative w-32 h-32 mb-8">
-        <div className="absolute inset-0 border-4 border-secondary rounded-full" />
-        <div className="absolute inset-0 border-4 border-t-primary border-r-primary rounded-full animate-spin" />
-        <div className="absolute inset-4 bg-secondary/30 rounded-full blur-xl animate-pulse" />
-      </div>
-
-      <h2 className="text-2xl font-display font-bold mb-2 text-foreground">Debrief in progress</h2>
-      <p className="text-muted-foreground max-w-md mx-auto mb-8">
-        We are scanning static artifacts and building your evidence-backed brief. This usually takes one to two minutes.
+    <div className="h-[480px] flex flex-col items-center justify-center text-center px-4">
+      <Loader2 className="w-14 h-14 text-primary animate-spin mb-6" />
+      <h2 className="text-xl font-display font-semibold mb-2 text-foreground">Debrief in progress…</h2>
+      <p className="text-muted-foreground max-w-md">
+        Running Debrief on your repo. This page updates automatically when your brief is ready.
       </p>
-
-      <div className="w-full max-w-sm space-y-3 font-mono text-xs text-left bg-secondary/20 p-6 rounded-lg border border-border">
-        {steps.map((step, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-primary/80">{step}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

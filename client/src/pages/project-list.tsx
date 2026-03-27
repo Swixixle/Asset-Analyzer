@@ -1,14 +1,37 @@
 import { Link } from "wouter";
 import { useProjects } from "@/hooks/use-projects";
 import { Layout } from "@/components/layout";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { GitBranch, Calendar, Terminal } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
+import { useDebriefApiKey } from "@/contexts/DebriefApiKeyContext";
 
 export default function ProjectList() {
+  const { apiKey } = useDebriefApiKey();
   const { data: projects, isLoading, error } = useProjects();
+
+  if (!apiKey) {
+    return (
+      <Layout>
+        <div className="max-w-lg mx-auto text-center py-20 px-4">
+          <Card>
+            <CardContent className="pt-8 pb-8 space-y-4">
+              <h2 className="text-lg font-semibold">API key required</h2>
+              <p className="text-muted-foreground text-sm">
+                Enter your API key on the home page first, then you can browse archived debriefs.
+              </p>
+              <Link href="/">
+                <Button>Go to home</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (
