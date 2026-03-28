@@ -60,7 +60,7 @@ function IntegrationCard({
   const label = status === "available" ? "Available" : status === "coming-soon" ? "Coming soon" : "Planned";
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex gap-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex gap-4">
       <div className="shrink-0 text-slate-700 text-2xl">{icon}</div>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -147,7 +147,7 @@ function SettingsWithoutClerk() {
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">Account</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-700">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs text-sm text-slate-700">
             <p>Sign-in is not configured on this server.</p>
           </div>
         </section>
@@ -232,7 +232,7 @@ function SettingsWithClerk() {
             </div>
           </SignedOut>
           <SignedIn>
-            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="key-label">Label</Label>
@@ -293,7 +293,7 @@ function SettingsWithClerk() {
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">Account</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-700 space-y-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs text-sm text-slate-700 space-y-2">
             {!isLoaded ? (
               <p>Loading…</p>
             ) : isSignedIn ? (

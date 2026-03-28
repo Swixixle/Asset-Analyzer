@@ -342,7 +342,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="mt-14 rounded-2xl border border-border bg-card/80 p-8 md:p-10 text-left shadow-lg backdrop-blur-sm">
+        <div className="mt-14 rounded-2xl border border-border bg-card/80 p-8 md:p-10 text-left shadow-lg backdrop-blur-xs">
           <div className="flex items-center gap-2 text-primary mb-6">
             <Sparkles className="w-5 h-5 shrink-0" aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-wider">Run a debrief</p>
@@ -370,7 +370,7 @@ export default function Home() {
                   onClick={() => setReportAudience("learner")}
                   className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors ${
                     reportAudience === "learner"
-                      ? "bg-primary text-primary-foreground shadow"
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60"
                   }`}
                 >
@@ -381,7 +381,7 @@ export default function Home() {
                   onClick={() => setReportAudience("pro")}
                   className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors ${
                     reportAudience === "pro"
-                      ? "bg-primary text-primary-foreground shadow"
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60"
                   }`}
                 >

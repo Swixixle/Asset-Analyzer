@@ -85,7 +85,7 @@ function BillingPageBody({ isSignedIn }: { isSignedIn: boolean }) {
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-700">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs text-sm text-slate-700">
           <p>
             <span className="text-slate-500">Current balance:</span>{" "}
             <span className="tabular-nums font-medium text-slate-900">
@@ -117,7 +117,7 @@ function BillingPageBody({ isSignedIn }: { isSignedIn: boolean }) {
           ).map((card) => (
             <div
               key={card.name + card.price}
-              className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-4"
+              className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs flex flex-col gap-4"
             >
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">{card.name}</h2>

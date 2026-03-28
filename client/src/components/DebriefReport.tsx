@@ -66,7 +66,7 @@ function RunHistoryPanel({
   const latest = chronological[chronological.length - 1];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 mb-6 space-y-4">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-xs p-6 mb-6 space-y-4">
       <h3 className="text-lg font-semibold text-slate-900">History</h3>
 
       <HistoryAuthNudge show={runs.length >= 2} />
@@ -401,14 +401,14 @@ function ApiSurfacePanel({ surface }: { surface: ApiSurfaceJson | null | undefin
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xs">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">HTTP endpoints</p>
           <p className="text-2xl font-semibold text-slate-900 mt-1">{n}</p>
           <p className="text-xs text-slate-600 mt-1">
             Authenticated {xa} · Open {yo} · Unknown auth {zu}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xs">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Webhooks</p>
           <p className="text-sm text-slate-800 mt-2">
             Inbound <span className="font-semibold">{wi}</span> · Outbound <span className="font-semibold">{wo}</span>
@@ -502,19 +502,19 @@ function DependencyInventoryPanel({ graph }: { graph: DependencyGraphJson | null
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xs">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Direct dependencies</p>
           <p className="text-2xl font-semibold text-slate-900 mt-1">{total}</p>
           <p className="text-xs text-slate-600 mt-1">
             Production {prod} · Dev {dev}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xs">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OSV-flagged</p>
           <p className={`text-2xl font-semibold mt-1 ${flagged > 0 ? "text-amber-800" : "text-emerald-800"}`}>{flagged}</p>
           <p className="text-xs text-slate-600 mt-1">Known vulns (point-in-time OSV scan)</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-xs">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lockfiles</p>
           <p className="text-sm text-slate-800 mt-2">
             {(graph.lockfiles_detected || []).length
@@ -667,7 +667,7 @@ export function DebriefReport({
   const learnerMd = ((analysis as { learnerReport?: string | null }).learnerReport || "").trim();
 
   const proArticle = (
-    <article className="bg-white text-slate-900 rounded-lg border border-slate-200 shadow-sm overflow-hidden max-w-4xl mx-auto">
+    <article className="bg-white text-slate-900 rounded-lg border border-slate-200 shadow-xs overflow-hidden max-w-4xl mx-auto">
       <header className="flex flex-wrap items-start justify-between gap-4 px-8 py-6 border-b border-slate-200 bg-white">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-slate-500 mb-1">Debrief</p>
@@ -908,19 +908,19 @@ export function DebriefReport({
         <TabsList className="grid w-full max-w-md grid-cols-2 bg-amber-100/80 border border-amber-200/90 p-1 h-auto">
           <TabsTrigger
             value="learner"
-            className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-950 data-[state=active]:shadow-sm text-amber-950/90 rounded-md"
+            className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-950 data-[state=active]:shadow-xs text-amber-950/90 rounded-md"
           >
             Learner Report
           </TabsTrigger>
           <TabsTrigger
             value="pro"
-            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm rounded-md"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs rounded-md"
           >
             Pro Report
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="learner" className="mt-4 focus-visible:outline-none">
-          <article className="rounded-xl border border-amber-200/90 bg-gradient-to-b from-amber-50 via-orange-50/50 to-amber-50/30 shadow-sm overflow-hidden text-amber-950">
+        <TabsContent value="learner" className="mt-4 focus-visible:outline-hidden">
+          <article className="rounded-xl border border-amber-200/90 bg-linear-to-b from-amber-50 via-orange-50/50 to-amber-50/30 shadow-xs overflow-hidden text-amber-950">
             <header className="px-6 py-4 border-b border-amber-200/70 bg-orange-100/40">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-800/90">Learner mode</p>
               <h2 className="text-xl font-semibold text-amber-950 mt-1">Plain-language debrief</h2>
@@ -933,7 +933,7 @@ export function DebriefReport({
             </div>
           </article>
         </TabsContent>
-        <TabsContent value="pro" className="mt-4 focus-visible:outline-none">
+        <TabsContent value="pro" className="mt-4 focus-visible:outline-hidden">
           {proArticle}
         </TabsContent>
       </Tabs>

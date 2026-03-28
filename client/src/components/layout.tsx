@@ -102,7 +102,7 @@ export function Layout({
 
       <main className="flex-1 container mx-auto px-4 py-8 md:py-12 relative">
         {!isLight && (
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none -z-10 h-[600px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none -z-10 h-[600px]" />
         )}
         {children}
       </main>

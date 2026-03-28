@@ -61,7 +61,7 @@ export function ProgressPanel({
   const widthPct = state.progress < 0 ? 100 : Math.min(100, Math.max(0, state.progress));
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-6 text-left shadow-sm">
+    <div className="mt-6 rounded-xl border border-border bg-card p-6 text-left shadow-xs">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Progress</p>
       <p className="mt-2 text-sm text-foreground">{state.message}</p>
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">

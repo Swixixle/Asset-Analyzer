@@ -1,15 +1,4 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+// Tailwind CSS v4 is handled by the @tailwindcss/vite plugin in vite.config.ts.
+// PostCSS is kept for any non-Tailwind transforms; autoprefixer is built into Tailwind v4.
+export default {};
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Vite is started from repo root (scripts/build.ts); Tailwind otherwise resolves
-// config from cwd and misses client/tailwind.config.ts → empty content + @apply errors.
-export default {
-  plugins: {
-    tailwindcss: {
-      config: path.join(__dirname, "tailwind.config.ts"),
-    },
-    autoprefixer: {},
-  },
-};
