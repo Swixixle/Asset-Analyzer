@@ -20,6 +20,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(repoRoot, "dist/public"),
     emptyOutDir: true,
+    modulePreload: { polyfill: false },
   },
   server: {
     fs: {
