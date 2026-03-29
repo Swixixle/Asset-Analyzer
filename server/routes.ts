@@ -839,6 +839,7 @@ export async function registerRoutes(
 
   const webhookRateLimiter = createRateLimiter(30, 60_000);
 
+  // sole registration — do not duplicate
   app.post("/api/webhooks/github", async (req: Request, res: Response) => {
     if (!webhookRateLimiter()) {
       return res.status(429).json({ error: "rate_limited" });

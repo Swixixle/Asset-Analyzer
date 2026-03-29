@@ -101,6 +101,12 @@ Once the codebase is cleaner:
 3. Add `tsc --noEmit` to pre-commit hooks
 4. Require passing type check in CI
 
+## Baseline — 2026-03-29
+
+Error count: **1700** (from `npx tsc --noEmit 2>&1 | grep -c "error TS" || echo 0` at repo root).
+
+Intent: CI should fail if this number increases.
+
 ## See Also
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)

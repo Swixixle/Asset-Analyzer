@@ -1,6 +1,9 @@
 # Debrief GitHub Action
 
-Analyze your codebase on every push. Get a plain-language report as a PR comment.
+Analyze your codebase on every push via the Debrief API.
+
+**PR comments:** Not yet implemented. The action runs analysis and writes artifacts.
+PR comment posting is on the roadmap.
 
 ## Usage
 

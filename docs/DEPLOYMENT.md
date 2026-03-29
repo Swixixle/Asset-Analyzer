@@ -1,6 +1,10 @@
 # Production Deployment Guide
 
-This guide covers deploying Asset-Analyzer (PTA) to production environments.
+> **Note:** Authoritative deploy config is `render.yaml`.
+> This doc covers generic infrastructure patterns.
+> Service names, build commands, and env flags below reflect the current Debrief stack.
+
+This guide covers deploying **Debrief** to production environments.
 
 ## Prerequisites
 
@@ -13,7 +17,7 @@ This guide covers deploying Asset-Analyzer (PTA) to production environments.
 
 ### Port Configuration
 
-PTA binds to a single port for all traffic (API + web UI):
+The Debrief API process binds to a single port for web traffic (API + static SPA):
 
 - **Default**: Port `5000`
 - **Configurable**: Set `PORT` environment variable
@@ -24,7 +28,7 @@ PTA binds to a single port for all traffic (API + web UI):
 
 ### Startup Boot Report
 
-On successful startup, PTA emits a structured JSON log line:
+On successful startup, Debrief emits a structured JSON log line:
 
 ```json
 {
@@ -44,8 +48,35 @@ Use this for monitoring and observability.
 ### Architecture
 
 ```
-Internet → Reverse Proxy (nginx/caddy) → PTA Server (port 5000)
+Internet → Reverse Proxy (nginx/caddy) → Debrief API (port 5000)
              (TLS termination)              (HTTP only)
+```
+
+### Runtime processes (API + optional BullMQ worker)
+
+```
+API service:    node dist/index.cjs   (DEBRIEF_RUN_ANALYZER_WORKER=0)
+Worker service: node dist/worker.cjs  (DEBRIEF_RUN_ANALYZER_WORKER=1, DEBRIEF_USE_BULLMQ=1)
+```
+
+Run a **separate** worker process (or Render worker service) when using Redis-backed analysis queues. The API alone does not drain `debrief-analyzer` jobs unless you colocate the worker (not typical in production).
+
+### Database schema
+
+Apply the Drizzle schema to Postgres from the repo root (no separate `migrate` CLI):
+
+```
+npm run db:push
+```
+
+Requires `DATABASE_URL`. Take a backup before pushing against production if you are risk-averse.
+
+### Feature flags (evidence chain and queue)
+
+```
+DEBRIEF_CHAIN_ENABLED=true      — enables receipt chain and scheduled targets tables
+DEBRIEF_SCHEDULER_ENABLED=true  — enables cron scheduler (requires DEBRIEF_CHAIN_ENABLED and BullMQ)
+DEBRIEF_USE_BULLMQ=1            — enables Redis queue (requires REDIS_URL)
 ```
 
 **Never expose port 5000 directly to the internet.** Always use a reverse proxy for:
@@ -64,7 +95,7 @@ Create `.env.production`:
 
 ```bash
 # Required
-DATABASE_URL=postgresql://user:password@db-host:5432/asset_analyzer
+DATABASE_URL=postgresql://user:password@db-host:5432/debrief
 API_KEY=<generate-with-openssl-rand-hex-32>
 NODE_ENV=production
 PORT=5000
@@ -85,7 +116,7 @@ version: '3.8'
 
 services:
   app:
-    image: ghcr.io/swixixle/asset-analyzer:latest
+    image: ghcr.io/swixixle/debrief:latest
     # Or build locally:
     # build: .
     ports:
@@ -107,8 +138,8 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: asset_analyzer
-      POSTGRES_USER: pta_user
+      POSTGRES_DB: debrief
+      POSTGRES_USER: debrief_user
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -131,40 +162,40 @@ docker-compose logs -f app
 #### 1. Build the Application
 
 ```bash
-cd /opt/asset-analyzer
+cd /opt/debrief
 npm install --production
 npm run build
 ```
 
 #### 2. Create Systemd Service
 
-Create `/etc/systemd/system/asset-analyzer.service`:
+Create `/etc/systemd/system/debrief.service`:
 
 ```ini
 [Unit]
-Description=Asset Analyzer Service
+Description=Debrief API Service
 After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=pta
-WorkingDirectory=/opt/asset-analyzer
+User=debrief
+WorkingDirectory=/opt/debrief
 Environment="NODE_ENV=production"
 Environment="PORT=5000"
-EnvironmentFile=/opt/asset-analyzer/.env.production
-ExecStart=/usr/bin/node /opt/asset-analyzer/dist/index.cjs
+EnvironmentFile=/opt/debrief/.env.production
+ExecStart=/usr/bin/node /opt/debrief/dist/index.cjs
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=asset-analyzer
+SyslogIdentifier=debrief
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/asset-analyzer/out /tmp/ci
+ReadWritePaths=/opt/debrief/out /tmp/ci
 
 [Install]
 WantedBy=multi-user.target
@@ -174,17 +205,17 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable asset-analyzer
-sudo systemctl start asset-analyzer
-sudo systemctl status asset-analyzer
+sudo systemctl enable debrief
+sudo systemctl start debrief
+sudo systemctl status debrief
 ```
 
 #### 4. Configure Nginx Reverse Proxy
 
-Create `/etc/nginx/sites-available/asset-analyzer`:
+Create `/etc/nginx/sites-available/debrief`:
 
 ```nginx
-upstream asset_analyzer {
+upstream debrief_upstream {
     server 127.0.0.1:5000;
     keepalive 64;
 }
@@ -223,7 +254,7 @@ server {
     client_max_body_size 100M;
 
     location / {
-        proxy_pass http://asset_analyzer;
+        proxy_pass http://debrief_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -236,7 +267,7 @@ server {
 
     # WebSocket support for real-time updates
     location /ws {
-        proxy_pass http://asset_analyzer;
+        proxy_pass http://debrief_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -248,7 +279,7 @@ server {
 #### 5. Enable Nginx Configuration
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/asset-analyzer /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/debrief /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -264,7 +295,7 @@ web: npm start
 
 2. Deploy:
 ```bash
-eb init -p node.js-18 asset-analyzer
+eb init -p node.js-18 debrief
 eb create prod-env
 eb deploy
 ```
@@ -272,7 +303,7 @@ eb deploy
 #### Google Cloud Run
 
 ```bash
-gcloud run deploy asset-analyzer \
+gcloud run deploy debrief \
   --source . \
   --platform managed \
   --region us-central1 \
@@ -282,7 +313,7 @@ gcloud run deploy asset-analyzer \
 #### Heroku
 
 ```bash
-heroku create asset-analyzer-prod
+heroku create debrief-prod
 heroku addons:create heroku-postgresql:mini
 heroku config:set NODE_ENV=production API_KEY=$(openssl rand -hex 32)
 git push heroku main
@@ -290,7 +321,7 @@ git push heroku main
 
 ## TLS/HTTPS Enforcement
 
-Asset-Analyzer includes production startup checks that enforce HTTPS by default.
+Debrief includes production startup checks that enforce HTTPS by default.
 
 ### Disable HTTPS Check (Not Recommended)
 
@@ -328,7 +359,7 @@ docker-compose logs -f app
 
 **Systemd:**
 ```bash
-journalctl -u asset-analyzer -f
+journalctl -u debrief -f
 ```
 
 ## Monitoring & Maintenance
@@ -341,19 +372,19 @@ See [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) for backup procedures.
 
 Configure log rotation for analyzer logs:
 
-Create `/etc/logrotate.d/asset-analyzer`:
+Create `/etc/logrotate.d/debrief`:
 
 ```
-/opt/asset-analyzer/out/_log/*.ndjson {
+/opt/debrief/out/_log/*.ndjson {
     daily
     rotate 30
     compress
     delaycompress
     notifempty
-    create 0640 pta pta
+    create 0640 debrief debrief
     sharedscripts
     postrotate
-        systemctl reload asset-analyzer > /dev/null 2>&1 || true
+        systemctl reload debrief > /dev/null 2>&1 || true
     endscript
 }
 ```
@@ -371,14 +402,14 @@ Monitor these metrics:
 
 ```bash
 # Remove CI runs older than 30 days
-find /opt/asset-analyzer/out/ci -type d -mtime +30 -exec rm -rf {} +
+find /opt/debrief/out/ci -type d -mtime +30 -exec rm -rf {} +
 ```
 
 ## Scaling Considerations
 
 ### Horizontal Scaling
 
-Asset-Analyzer can run multiple instances with shared PostgreSQL:
+Debrief can run multiple API instances with shared PostgreSQL:
 
 1. Use a load balancer (nginx, HAProxy, AWS ALB)
 2. Ensure shared database is accessible from all instances
@@ -422,7 +453,7 @@ Either:
 
 ### High memory usage
 
-- Check for stuck analyzer processes: `ps aux | grep analyzer_cli`
+- Check for stuck analyzer processes: `ps aux | grep debrief` or `ps aux | grep analyzer_cli`
 - Verify `ANALYZER_TIMEOUT_MS` is set (default: 600000ms)
 - Consider reducing concurrent CI jobs
 
@@ -435,5 +466,5 @@ Either:
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/Swixixle/Asset-Analyzer/issues
-- Documentation: https://github.com/Swixixle/Asset-Analyzer/tree/main/docs
+- GitHub Issues: https://github.com/Swixixle/debrief/issues
+- Documentation: https://github.com/Swixixle/debrief/tree/main/docs

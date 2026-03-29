@@ -1,3 +1,7 @@
+// STATUS: PR comment posting not yet implemented.
+// The action currently runs analysis and writes output artifacts.
+// It does not post a PR comment. This is a known gap — see RISKS_AND_GAPS.md R5.
+//
 // PARTIAL: GitHub Action — posts to a configurable Debrief API (`api.debrief.app` in this template).
 // Planned: PR comments, status checks, org-specific base URLs via inputs.
 // Status: Requires secrets, correct API host, and API compatibility review before production use.

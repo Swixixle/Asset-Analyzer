@@ -226,6 +226,16 @@ Check logs for:
 **Problem:** Private repo clones fail  
 **Solution:** Set `GITHUB_TOKEN` with `repo` scope
 
+## Evidence chain signing
+
+| Variable | Purpose |
+|----------|---------|
+| `DEBRIEF_CHAIN_HMAC_SECRET` | HMAC-SHA256 signing (shared secret; weaker for third-party verification) |
+| `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` | Ed25519 private key (Python signer, PEM) |
+| `DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY` | Ed25519 public key (verifiers, PEM) |
+
+When both `DEBRIEF_CHAIN_HMAC_SECRET` and `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` are set, Ed25519 is used for signing and HMAC is ignored.
+
 ## See Also
 
 - [Deployment Guide](./DEPLOYMENT.md) - Production deployment instructions

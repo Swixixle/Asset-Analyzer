@@ -11,10 +11,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from rich.console import Console
-from rich.table import Table
-
-
 def canonical_json_bytes(obj: Any) -> bytes:
     """Deterministic JSON: sorted keys, compact separators, UTF-8."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -34,7 +30,8 @@ def signing_bytes(receipt: Dict[str, Any]) -> bytes:
 def sign_receipt(receipt: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     """
     Sign receipt (mutates nothing). Returns (signature_base64_or_hex, algorithm_name).
-    Prefers Ed25519 from DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY (PEM), else HMAC-SHA256 if DEBRIEF_CHAIN_HMAC_SECRET set.
+    Ed25519 takes precedence over HMAC when both DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY and DEBRIEF_CHAIN_HMAC_SECRET are set.
+    HMAC is for internal use only; use Ed25519 for buyer-facing verification.
     """
     msg = signing_bytes(receipt)
 
@@ -67,10 +64,11 @@ def verify_receipt_signature(receipt: Dict[str, Any]) -> Tuple[bool, str]:
     if not sig:
         return True, "no_signature_configured"
     if not alg:
-        if os.environ.get("DEBRIEF_CHAIN_HMAC_SECRET"):
-            alg = "HMAC-SHA256"
-        elif os.environ.get("DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY"):
+        # Prefer Ed25519 when a public key is configured (matches sign_receipt + Node verifyChainRows).
+        if os.environ.get("DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY"):
             alg = "Ed25519"
+        elif os.environ.get("DEBRIEF_CHAIN_HMAC_SECRET"):
+            alg = "HMAC-SHA256"
         else:
             return False, "signature_without_algorithm_or_keys"
     msg = signing_bytes(receipt)
@@ -321,6 +319,9 @@ def build_gap_receipt(
 
 
 def print_verify_report(report: ChainVerifyReport) -> None:
+    from rich.console import Console
+    from rich.table import Table
+
     console = Console()
     table = Table(title=f"Chain verification — {report.target_id}")
     table.add_column("Field", style="cyan")
@@ -339,3 +340,12 @@ def print_verify_report(report: ChainVerifyReport) -> None:
         console.print("[red]Signature failures[/red]")
         for sf in report.signature_failures:
             console.print(sf)
+
+
+if __name__ == "__main__":
+    """Stdin: JSON object. Stdout: canonical UTF-8 string (sorted keys, compact separators)."""
+    import sys
+
+    raw = sys.stdin.read()
+    obj = json.loads(raw)
+    sys.stdout.write(canonical_json_bytes(obj).decode("utf-8"))

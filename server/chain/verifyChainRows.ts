@@ -16,6 +16,8 @@ export type ChainVerifyNodeResult = {
   anomaliesCount: number;
 };
 
+// Ed25519 takes precedence over HMAC when both env vars are configured.
+// HMAC is for internal use only. Use Ed25519 for any buyer-facing verification.
 export function verifyReceiptSignatureSync(doc: Record<string, unknown>): { ok: boolean; detail: string } {
   const sig = doc.signature;
   const alg = doc.chain_signature_algorithm;
@@ -23,16 +25,6 @@ export function verifyReceiptSignatureSync(doc: Record<string, unknown>): { ok: 
     return { ok: true, detail: "no_signature" };
   }
   const msg = signingPayloadBytes(doc);
-  if (alg === "HMAC-SHA256") {
-    const secret = process.env.DEBRIEF_CHAIN_HMAC_SECRET?.trim();
-    if (!secret) {
-      return { ok: false, detail: "missing_DEBRIEF_CHAIN_HMAC_SECRET" };
-    }
-    const expected = createHmac("sha256", secret).update(msg).digest("hex");
-    return expected === String(sig)
-      ? { ok: true, detail: "hmac_ok" }
-      : { ok: false, detail: "hmac_mismatch" };
-  }
   if (alg === "Ed25519") {
     const pem = process.env.DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY?.trim();
     if (!pem) {
@@ -45,6 +37,16 @@ export function verifyReceiptSignatureSync(doc: Record<string, unknown>): { ok: 
     } catch (e: any) {
       return { ok: false, detail: `ed25519_err:${e?.message || e}` };
     }
+  }
+  if (alg === "HMAC-SHA256") {
+    const secret = process.env.DEBRIEF_CHAIN_HMAC_SECRET?.trim();
+    if (!secret) {
+      return { ok: false, detail: "missing_DEBRIEF_CHAIN_HMAC_SECRET" };
+    }
+    const expected = createHmac("sha256", secret).update(msg).digest("hex");
+    return expected === String(sig)
+      ? { ok: true, detail: "hmac_ok" }
+      : { ok: false, detail: "hmac_mismatch" };
   }
   return { ok: false, detail: `unknown_alg:${alg}` };
 }

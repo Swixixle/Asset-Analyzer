@@ -3,7 +3,7 @@
 
 ## Base URL
 
-- Default: `http://localhost:3000/`
+- Default: `http://localhost:5000/`
 - Note: May be proxied in production; confirm deployment config.
 
 ## Authentication
@@ -53,7 +53,6 @@
 
 ### Webhooks
 - POST `/api/webhooks/github` — Rate limited, HMAC signature required, deduplication via `checkAndRecordDelivery()`
-  - Note: Route appears twice in file; Express uses last registration.
 
 ### CI
 - GET `/api/ci/runs` — Rate limited, API_KEY required, query params `owner`, `repo` required
@@ -78,8 +77,6 @@
 - `/api/dossiers/lantern` returns markdown (`text/markdown`) and is public but rate limited.
 - Webhook route includes replay deduplication using `checkAndRecordDelivery()` and returns 202 for deduped replays and ignored events.
 - `/api/certificates/verify` is public (no `requireAuth`) but rate limited.
-- Two `app.post("/api/webhooks/github"...)` declarations in `server/routes.ts`: document that only one is registered/active (Express uses last registration).
-
 ## Code Pointers
 
 - `server/routes.ts` — All route definitions, auth, rate limiting, Python orchestration

@@ -36,6 +36,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: TypeScript error count gate
+        run: |
+          COUNT=$(npx tsc --noEmit 2>&1 | grep -c "error TS" || echo 0)
+          BASELINE=1700
+          echo "TS errors: $COUNT (baseline: $BASELINE)"
+          if [ "$COUNT" -gt "$BASELINE" ]; then
+            echo "TypeScript error count increased. Fix new errors before merging."
+            exit 1
+          fi
+
   smoke-test:
     name: Smoke Test (PTA Analyzer)
     runs-on: ubuntu-latest
@@ -64,6 +74,8 @@ jobs:
 
       - name: Preflight (compile + tests)
         run: bash scripts/preflight.sh
+
+      - name: Install editable Python package
         run: pip install -e .
 
       - name: Install Node.js dependencies
