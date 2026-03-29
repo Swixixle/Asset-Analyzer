@@ -12,7 +12,7 @@
     "url": "https://github.com/Swixixle/debrief/issues"
   },
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "NODE_ENV=development node --env-file=.env --import tsx server/index.ts",
     "build": "tsx scripts/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc || echo '\n⚠️  Type errors exist. This is a known issue tracked in docs/internal/TYPECHECK_TODO.md\n   We do not fail CI on type errors currently to avoid blocking development.\n   Please avoid introducing new type errors in your changes.\n'",

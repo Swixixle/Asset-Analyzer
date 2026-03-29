@@ -107,6 +107,16 @@ Error count: **1700** (from `npx tsc --noEmit 2>&1 | grep -c "error TS" || echo 
 
 Intent: CI should fail if this number increases.
 
+## Rescoped gate — 2026-03-29
+
+Scope: server/ + shared/ only (`tsconfig.server.json`)
+
+Baseline: **142**
+
+Prior full-project baseline: 1700 (root `tsconfig.json`, includes `client/`)
+
+Client/ errors are surfaced by Vite build — not gated here separately until Vite type-check step is added to CI.
+
 ## See Also
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)

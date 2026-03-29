@@ -63,3 +63,28 @@ Re-run CodeQL after merge to confirm alert clearance.
 
 - **npm:** weekly or on any dependency PR.
 - **Python:** monthly or when bumping `pyproject.toml` dependencies.
+
+---
+
+## Pygments (via `rich`) — CVE watch
+
+- `rich` depends on `pygments` for syntax highlighting.
+- Pygments has had exploitable CVEs in the past (e.g. ReDoS via crafted input).
+- Our exposure: any code path that passes untrusted repo content through `rich`
+  syntax highlighting is a potential vector.
+
+**Current status:** `pip-audit` reported **CVE-2026-4539** for Pygments 2.19.2 (transitive via `rich`) as of 2026-03-28; confirm PyPI/OSV state with the commands below — there may still be no patched wheel. Monitoring required. (See also *Python (`pip-audit`)* above.)
+
+**Check command:**
+
+```bash
+pip index versions pygments
+pip-audit --vulnerability-service osv 2>/dev/null | grep -i pygment
+```
+
+**Action on new CVE:**
+
+1. Check if our usage involves untrusted input (if not, low urgency)
+2. Pin or upgrade `rich` / `pygments` in `pyproject.toml` or requirements
+3. Run `pytest server/analyzer/tests/` to confirm nothing breaks
+4. Update this section with CVE ID and resolution date

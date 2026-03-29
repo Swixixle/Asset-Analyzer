@@ -35,6 +35,8 @@ This runbook matches the current Express + React + Postgres + optional Redis/Bul
 2. Confirm worker entry: `server/analyzer-worker-entry.ts` → queue name **`debrief-analyzer`** (`server/queue/analyzer-queue.ts`).
 3. Stalled jobs: use **Redis/BullMQ tooling** (e.g. Redis CLI, or a Bull Board if you add one — not bundled). Inspect keys for `bull:debrief-analyzer:*`. Failed jobs retry up to **3** times with exponential backoff (`defaultJobOptions`).
 
+Redis is free-tier (25MB cap, no persistence). If jobs are disappearing on restart, this is expected — free Redis does not persist. Upgrade tier before relying on job recovery across deploys.
+
 **Mitigation:** Restart worker after fixing root cause (Python crash, disk, env). For poison messages, remove or fail the specific job ID in Redis-aware tooling; avoid blindly flushing Redis in production.
 
 **Note:** **GitHub CI jobs** use a **separate** poll loop in `server/ci-worker.ts` (not BullMQ). Stuck CI: see `/api/ci/health`, job lease expiry (~5 min), `CI_PRESERVE_WORKDIR` for debug.

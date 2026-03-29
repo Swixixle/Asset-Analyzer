@@ -38,11 +38,13 @@ export function createRedisConnection(): Redis | null {
   return r;
 }
 
+// Retention kept low — Render Redis free tier is 25MB cap, no persistence.
+// Do not raise these without upgrading Redis tier first.
 const defaultJobOptions = {
   attempts: 3,
   backoff: { type: "exponential" as const, delay: 2000 },
-  removeOnComplete: { count: 100, age: 3600 },
-  removeOnFail: { count: 50 },
+  removeOnComplete: { count: 10 },
+  removeOnFail: { count: 5 },
 };
 
 export function analyzerQueue(): Queue | null {

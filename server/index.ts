@@ -65,6 +65,8 @@ app.use((req, res, next) => {
     ? rawOrigins.split(",").map((o) => o.trim()).filter(Boolean)
     : [];
 
+  // R6 mitigation — warning is intentional, do not remove.
+  // Set ALLOWED_ORIGINS in Render dashboard (e.g. debrief-secrets env group) before going public.
   if (process.env.NODE_ENV === "production" && !rawOrigins) {
     console.warn(
       "[SECURITY] ALLOWED_ORIGINS is not set in production. CORS will block all cross-origin requests. Set ALLOWED_ORIGINS in your environment.",

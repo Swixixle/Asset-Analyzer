@@ -92,10 +92,10 @@ export function getConfig(): AppConfig {
   const isProduction = nodeEnv === "production";
   const isDevelopment = nodeEnv === "development";
   
-  // Load .env only in non-production
+  // Load .env only in non-production — done before this module via
+  // `node --env-file=.env` in `npm run dev` so DATABASE_URL exists before db.ts imports.
   if (!isProduction && isDevelopment) {
-    // Note: dotenv should be loaded at app entry point, not here
-    // This is just documentation of the policy
+    // (Intentionally empty — see package.json "dev" script.)
   }
   
   const { host, port } = getBindConfig();
