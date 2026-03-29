@@ -93,15 +93,6 @@ def _get_git_sha(repo_root: str) -> str:
     except Exception:
         return "unknown"
 
-def _validate_llm_or_fallback(self):
-    if self.no_llm:
-        return
-    api_key = os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY")
-    if not api_key:
-        _safe_print("WARNING: AI_INTEGRATIONS_OPENAI_API_KEY missing; falling back to no_llm=True")
-        self.no_llm = True
-        self.client = None
-        return
 import os
 import json
 import asyncio
@@ -200,11 +191,16 @@ class Analyzer:
 
         self.client = None
         if not no_llm:
-            self.client = openai.OpenAI(
-                api_key=os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY"),
-                base_url=os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL")
-
+            _api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get(
+                "AI_INTEGRATIONS_OPENAI_API_KEY"
             )
+            _base_url = os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL") or os.environ.get(
+                "OPENAI_BASE_URL"
+            )
+            _client_kw: Dict[str, Any] = {"api_key": _api_key}
+            if _base_url:
+                _client_kw["base_url"] = _base_url
+            self.client = openai.OpenAI(**_client_kw)
 
 
 

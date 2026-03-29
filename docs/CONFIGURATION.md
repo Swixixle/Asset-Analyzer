@@ -96,8 +96,8 @@ Format: `postgresql://user:pass@host:port/dbname`
 
 | Variable | Default | Description | Required |
 |----------|---------|-------------|----------|
-| `API_KEY` | None | Legacy API authentication key (min 32 chars) | **Yes (production)** |
-| `ADMIN_KEY` | Falls back to `API_KEY` | Admin-level authentication key (min 32 chars) | **Yes (production)** |
+| `API_KEY` | Auto-generated on first boot if unset (see logs) | API authentication key (min 32 chars when set manually) | **Yes (production)** — set explicitly or copy from first-boot logs |
+| `ADMIN_KEY` | Auto-generated on first boot if unset; else falls back to `API_KEY` | Admin-level authentication key | **Yes (production)** |
 | `FORCE_HTTP` | `false` | Disable HTTPS enforcement (NOT recommended) | No |
 
 **Security Notes:**
@@ -128,10 +128,12 @@ Format: `postgresql://user:pass@host:port/dbname`
 
 | Variable | Default | Description | Required |
 |----------|---------|-------------|----------|
-| `AI_INTEGRATIONS_OPENAI_API_KEY` | None | OpenAI API key for semantic analysis | No (yes for AI features) |
-| `AI_INTEGRATIONS_OPENAI_BASE_URL` | None | OpenAI API base URL | No (yes for AI features) |
+| `OPENAI_API_KEY` | None | OpenAI (or compatible) API key for semantic analysis, analyzer LLM, education receptionist | No (yes for AI features) |
+| `OPENAI_BASE_URL` | None | Optional API base URL | No |
+| `AI_INTEGRATIONS_OPENAI_API_KEY` | None | *(deprecated alias for `OPENAI_API_KEY` — set `OPENAI_API_KEY` instead)* | No |
+| `AI_INTEGRATIONS_OPENAI_BASE_URL` | None | Base URL (e.g. Replit AI Integrations proxy) | No |
 
-**Note:** Both key and base URL must be set to enable AI-powered semantic analysis.
+**Note:** Set `OPENAI_API_KEY` to enable AI-powered features. If `OPENAI_BASE_URL` / `AI_INTEGRATIONS_OPENAI_BASE_URL` is unset, the default OpenAI API endpoint is used.
 
 ## Startup Boot Report
 
@@ -230,11 +232,21 @@ Check logs for:
 
 | Variable | Purpose |
 |----------|---------|
-| `DEBRIEF_CHAIN_HMAC_SECRET` | HMAC-SHA256 signing (shared secret; weaker for third-party verification) |
-| `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` | Ed25519 private key (Python signer, PEM) |
-| `DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY` | Ed25519 public key (verifiers, PEM) |
+| `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` | Ed25519 private key (PEM). Auto-generated on first boot if unset — persist from logs for production. |
+| `DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY` | Ed25519 public key (PEM), for verifiers |
+| `DEBRIEF_CHAIN_EXPORT_PRIVATE_KEY` | Optional separate key for chain export signing. If not set, falls back to `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` automatically. Most installs do not need this. |
 
-When both `DEBRIEF_CHAIN_HMAC_SECRET` and `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` are set, Ed25519 is used for signing and HMAC is ignored.
+**HMAC:** HMAC signing is used internally as a fallback only. Set `DEBRIEF_CHAIN_SIGNING_PRIVATE_KEY` for all production and buyer-facing use. Do not set `DEBRIEF_CHAIN_HMAC_SECRET` manually.
+
+### SMTP / email alerts
+
+| Variable | Purpose |
+|----------|---------|
+| `SMTP_URL` | **Recommended:** connection string (`smtp://` or `smtps://`). Takes precedence over individual `SMTP_*` fields. |
+| `SMTP_FROM` | From address |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Legacy; used only when `SMTP_URL` is unset |
+
+`SMTP_URL` takes precedence over individual SMTP_* fields. Format: `smtp://user:pass@host:port` or `smtps://user:pass@host:465` for TLS.
 
 ## See Also
 

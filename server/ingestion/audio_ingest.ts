@@ -7,12 +7,12 @@ const WHISPER_MODEL = "whisper-1";
 
 function openAiKey(): string {
   const k =
-    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
     process.env.OPENAI_API_KEY ||
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
     process.env.DEBRIEF_OPENAI_API_KEY;
   if (!k) {
     throw new Error(
-      "AI_INTEGRATIONS_OPENAI_API_KEY (or OPENAI_API_KEY) required for audio transcription",
+      "OPENAI_API_KEY (or deprecated AI_INTEGRATIONS_OPENAI_API_KEY) required for audio transcription",
     );
   }
   return k;

@@ -141,12 +141,12 @@ describe('getConfig', () => {
   
   it('should detect semantic/AI enabled when keys are set', async () => {
     process.env.NODE_ENV = 'development';
-    process.env.AI_INTEGRATIONS_OPENAI_API_KEY = 'sk-test';
-    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = 'https://api.openai.com';
-    
+    process.env.OPENAI_API_KEY = 'sk-test';
+    delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+
     const { getConfig } = await import('../config');
     const config = getConfig();
-    
+
     expect(config.aiEnabled).toBe(true);
     expect(config.aiOpenaiApiKey).toBe('sk-test');
   });

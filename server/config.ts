@@ -104,10 +104,14 @@ export function getConfig(): AppConfig {
   const ciWorkerEnabled = process.env.CI_WORKER_ENABLED === "true";
   const githubWebhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
   
-  // AI Integration
-  const aiOpenaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const aiOpenaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const aiEnabled = !!(aiOpenaiApiKey && aiOpenaiBaseUrl);
+  // AI Integration (OPENAI_API_KEY primary; AI_INTEGRATIONS_* is a deprecated alias for key/base URL)
+  const aiOpenaiApiKey =
+    process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const aiOpenaiBaseUrl =
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
+    process.env.OPENAI_BASE_URL ||
+    "https://api.openai.com/v1";
+  const aiEnabled = !!aiOpenaiApiKey;
   
   const config: AppConfig = {
     nodeEnv,

@@ -18,6 +18,7 @@ describe("sendAnomalyEmail", () => {
   beforeEach(() => {
     process.env.SMTP_HOST = "127.0.0.1";
     process.env.SMTP_PORT = "587";
+    delete process.env.SMTP_URL;
     delete process.env.SMTP_USER;
     delete process.env.SMTP_PASS;
     mockSendMail.mockClear();
@@ -27,6 +28,7 @@ describe("sendAnomalyEmail", () => {
   afterEach(() => {
     delete process.env.SMTP_HOST;
     delete process.env.SMTP_PORT;
+    delete process.env.SMTP_URL;
   });
 
   it("invokes sendMail with expected recipients and body", async () => {
@@ -52,5 +54,24 @@ describe("sendAnomalyEmail", () => {
     expect(arg.subject.trim().length).toBeGreaterThan(0);
     expect(arg.text).toContain(repoUrl);
     expect(arg.text.trim().length).toBeGreaterThan(0);
+  });
+
+  it("uses SMTP_URL when set (takes precedence over SMTP_HOST)", async () => {
+    delete process.env.SMTP_HOST;
+    delete process.env.SMTP_PORT;
+    process.env.SMTP_URL = "smtps://u:p@mail.example:465";
+
+    await sendAnomalyEmail({
+      to: "ops@example.com",
+      targetLabel: "widget",
+      targetId: "target-uuid-1",
+      timestamp: "2026-03-29T12:00:00Z",
+      diffSummary: "change",
+      receiptHash: "abc",
+      anomalyReason: "test",
+    });
+
+    expect(mockCreateTransport).toHaveBeenCalledWith("smtps://u:p@mail.example:465");
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
   });
 });

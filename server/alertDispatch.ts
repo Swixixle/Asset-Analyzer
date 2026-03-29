@@ -1,5 +1,23 @@
 import nodemailer from "nodemailer";
 
+function getSmtpTransport(): nodemailer.Transporter | null {
+  const smtpUrl = process.env.SMTP_URL?.trim();
+  if (smtpUrl) {
+    return nodemailer.createTransport(smtpUrl);
+  }
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host) return null;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: user && pass ? { user, pass } : undefined,
+  });
+}
+
 export async function sendAnomalyEmail(opts: {
   to: string;
   targetLabel: string;
@@ -10,21 +28,11 @@ export async function sendAnomalyEmail(opts: {
   anomalyReason: string;
   appUrl?: string;
 }): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  if (!host) {
-    console.warn("[alert] SMTP_HOST not set — skipping email");
+  const transporter = getSmtpTransport();
+  if (!transporter) {
+    console.warn("[alert] SMTP_URL or SMTP_HOST not set — skipping email");
     return;
   }
-  const port = Number(process.env.SMTP_PORT || "587");
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth:
-      process.env.SMTP_USER && process.env.SMTP_PASS
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        : undefined,
-  });
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@localhost";
   const linkBase = process.env.APP_URL || "http://localhost:5000";
   const body = [

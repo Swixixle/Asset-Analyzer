@@ -574,6 +574,14 @@ export async function registerRoutes(
     res.type("text/markdown").send(readFileSync(p, "utf8"));
   });
 
+  app.get("/api/admin/keys/public", authLimiter, (req, res) => {
+    if (!requireDevAdmin(req, res)) return;
+    res.json({
+      signingPublicKey: process.env.DEBRIEF_CHAIN_SIGNING_PUBLIC_KEY ?? null,
+      note: "Share this with anyone who needs to verify your receipts offline.",
+    });
+  });
+
   app.get("/api/admin/analyzer-log", authLimiter, async (req, res) => {
     if (!requireDevAdmin(req, res)) return;
     try {

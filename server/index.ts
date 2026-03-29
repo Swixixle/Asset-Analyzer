@@ -13,6 +13,7 @@ import { registerRoutes } from "./routes";
 import { startScheduler } from "./scheduler";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { ensureAccessKeys, ensureSigningKeys } from "./keys/ensureSigningKeys";
 import { getConfig, getBootReport } from "./config";
 import { initWebSocketServer } from "./ws";
 import { handleStripeWebhook } from "./billing/webhook";
@@ -21,7 +22,10 @@ import { upsertUserMiddleware } from "./middleware/upsertUser";
 import { withClerk } from "./middleware/clerk";
 import { apiLimiter } from "./middleware/rateLimiter";
 
-// Load and validate configuration
+ensureSigningKeys();
+ensureAccessKeys();
+
+// Load and validate configuration (after optional key generation)
 const config = getConfig();
 
 // Configuration is now validated in getConfig() - no legacy validator needed

@@ -170,13 +170,17 @@ export function detectAnomalies(diff: StructuredDiff): { flagged: boolean; reaso
 export async function summarizeDiffForCompliance(
   diff: StructuredDiff,
 ): Promise<string> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  const apiKey =
+    process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!apiKey) {
     return summarizeDeterministic(diff);
   }
   const client = new OpenAI({
     apiKey,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
+    baseURL:
+      process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
+      process.env.OPENAI_BASE_URL ||
+      undefined,
   });
   const model = process.env.DEBRIEF_ANALYZER_MODEL || "gpt-4.1-mini";
   const structured = JSON.stringify(diff, null, 2);
