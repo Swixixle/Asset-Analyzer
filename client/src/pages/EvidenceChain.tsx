@@ -15,7 +15,7 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { CognitiveNode, EvidenceChainModel } from "@shared/evidenceChainModel";
+import type { CognitiveNode, EvidenceChainModel, KeyStatus } from "@shared/evidenceChainModel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -28,6 +28,7 @@ import { DownTriangleNode } from "@/components/education/DownTriangleNode";
 import { SquareNode } from "@/components/education/SquareNode";
 import { CognitiveEdge } from "@/components/education/CognitiveEdge";
 import { eduStateColor, type CognitiveEdgeData } from "@/components/education/cognitiveTypes";
+import { KeyHealthPanel } from "@/components/education/KeyHealthPanel";
 import { useDebriefApiKey } from "@/contexts/DebriefApiKeyContext";
 import { isOpenWeb } from "@/lib/openWeb";
 import { Loader2 } from "lucide-react";
@@ -643,7 +644,12 @@ export default function EvidenceChainPage() {
         </div>
       </div>
 
-      <DetailPanel selected={selected} runId={model.runId} apiKey={apiKey} />
+      <DetailPanel
+        selected={selected}
+        runId={model.runId}
+        apiKey={apiKey}
+        keyStatuses={model.keyStatuses}
+      />
     </div>
   );
 }
@@ -678,10 +684,12 @@ function DetailPanel({
   selected,
   runId,
   apiKey,
+  keyStatuses,
 }: {
   selected: CognitiveNode | null;
   runId: string;
   apiKey: string | null;
+  keyStatuses: KeyStatus[];
 }) {
   const [recMode, setRecMode] = useState<ReceptionistMode>("explain");
   const [recTexts, setRecTexts] = useState<Partial<Record<ReceptionistMode, string>>>({});
@@ -929,6 +937,7 @@ function DetailPanel({
           </div>
         </div>
       )}
+      {keyStatuses.length > 0 ? <KeyHealthPanel keys={keyStatuses} /> : null}
     </div>
   );
 }

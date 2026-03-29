@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs";
+import path from "path";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { projects, receiptChain, runs, scheduledTargets } from "@shared/schema";
@@ -11,6 +13,20 @@ import { verifyChainRowsOrdered } from "./chain/verifyChainRows";
 import { analyzerQueue } from "./queue/analyzer-queue";
 import { enrichBuildHistoryWithHighlightIds, inferBuildHistory } from "./buildHistory";
 import type { BuildHistoryPayload } from "@shared/evidenceChainModel";
+import { buildKeyStatuses } from "./keys/buildKeyStatuses";
+
+function loadSecretsFindingsCount(runDir: string | null | undefined): number {
+  if (!runDir?.trim()) return 0;
+  const base = path.isAbsolute(runDir) ? runDir : path.resolve(process.cwd(), runDir);
+  const file = path.join(base, "secrets_scan.json");
+  if (!existsSync(file)) return 0;
+  try {
+    const j = JSON.parse(readFileSync(file, "utf8")) as { findings_count?: number };
+    return typeof j.findings_count === "number" ? j.findings_count : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function rowToInput(row: ReceiptChainRow): ChainReceiptInput {
   return {
@@ -70,6 +86,9 @@ export async function getEducationChainModelForRun(runId: number): Promise<Evide
 
   const minimal = !target || chainRows.length === 0;
 
+  const secretsFindingsCount = loadSecretsFindingsCount(run.runDir);
+  const keyStatuses = buildKeyStatuses();
+
   const core = buildEvidenceChainModel({
     runId,
     projectId: project.id,
@@ -89,6 +108,8 @@ export async function getEducationChainModelForRun(runId: number): Promise<Evide
     exportSigningConfigured,
     usesAnalyzerJobQueue,
     minimal,
+    secretsFindingsCount,
+    keyStatuses,
   });
 
   let buildHistory: BuildHistoryPayload = { events: [], historyAvailable: false };

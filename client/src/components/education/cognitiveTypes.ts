@@ -25,6 +25,7 @@ export const eduStateColor: Record<NodeState, string> = {
   gap: "var(--edu-red)",
   idle: "var(--edu-gray)",
   healthy: "var(--edu-blue)",
+  exposed: "var(--edu-exposed)",
 };
 
 export type CognitiveEdgeData = {

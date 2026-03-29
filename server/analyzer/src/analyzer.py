@@ -396,6 +396,26 @@ class Analyzer:
 
             run_stage("dependency_graph", dependency_graph_stage, ctx)
 
+            def trufflehog_stage():
+                import shutil
+                from .trufflehog_scan import run_trufflehog_scan
+
+                self.console.print("[bold]Step 5c-b: Optional secrets scan (TruffleHog)...[/bold]")
+                findings = run_trufflehog_scan(str(self.repo_dir))
+                ran = shutil.which("trufflehog") is not None
+                payload = {
+                    "ran": ran,
+                    "findings_count": len(findings),
+                    "findings": findings[:20],
+                    "truncated": len(findings) > 20,
+                }
+                self.save_json("secrets_scan.json", payload)
+                self.console.print(
+                    f"  secrets_scan.json (tool={'present' if ran else 'absent'}, {len(findings)} finding(s))"
+                )
+
+            run_stage("trufflehog", trufflehog_stage, ctx)
+
             def api_surface_persist_stage():
                 from .core.api_surface import extract_api_surface, render_api_surface_md
 

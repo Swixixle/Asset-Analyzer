@@ -4,7 +4,24 @@
 
 import { computeLogicalDependencyOrder } from "./educationTopology";
 
-export type NodeState = "clean" | "anomaly" | "broken" | "gap" | "idle" | "healthy";
+export type NodeState =
+  | "clean"
+  | "anomaly"
+  | "broken"
+  | "gap"
+  | "idle"
+  | "healthy"
+  | "exposed";
+
+export interface KeyStatus {
+  name: string;
+  displayName: string;
+  status: "set" | "auto" | "missing";
+  role: string;
+  consequence: string;
+  howToStore: string;
+  rotationSteps: string[];
+}
 export type NodeShape = "circle" | "up-triangle" | "down-triangle" | "square";
 export type NodeLayer = "sky" | "engine" | "foundation";
 
@@ -76,6 +93,8 @@ export interface EvidenceChainModel {
   buildHistory: BuildHistoryPayload;
   /** Topological order of node ids — foundations after dependents */
   logicalDependencyOrder: string[];
+  /** Environment / secret health for education UI (server-filled) */
+  keyStatuses: KeyStatus[];
 }
 
 /** Minimal row shape for pure builder + tests (matches DB receipt_chain columns we need). */
@@ -214,6 +233,17 @@ function finalizeEvidenceModel(
   };
 }
 
+function applySecretsExposedToTarget(nodes: CognitiveNode[], secretsFindingsCount: number): void {
+  if (secretsFindingsCount <= 0) return;
+  const target = nodes.find((n) => n.id === "target");
+  if (!target) return;
+  target.state = "exposed";
+  const msg = `TruffleHog found ${secretsFindingsCount} potential secret(s) committed to this repository. Secrets in git history are permanent — rotation is required even after deletion.`;
+  if (!target.anomalies.includes(msg)) {
+    target.anomalies = [...target.anomalies, msg];
+  }
+}
+
 /**
  * Build full education model from chain + run context.
  * When `minimal` is true, only Target Repo + Analyzer Run (idle) are returned.
@@ -236,6 +266,9 @@ export function buildEvidenceChainModel(input: {
   /** Copy helper: mention job queue when runs use BullMQ */
   usesAnalyzerJobQueue: boolean;
   minimal: boolean;
+  /** From `secrets_scan.json` (TruffleHog); optional */
+  secretsFindingsCount?: number;
+  keyStatuses?: KeyStatus[];
 }): EvidenceChainModel {
   const {
     runId,
@@ -251,6 +284,8 @@ export function buildEvidenceChainModel(input: {
     exportSigningConfigured,
     usesAnalyzerJobQueue,
     minimal,
+    secretsFindingsCount = 0,
+    keyStatuses = [],
   } = input;
 
   const sorted = [...receipts].sort((a, b) => a.chainSequence - b.chainSequence);
@@ -325,6 +360,9 @@ export function buildEvidenceChainModel(input: {
       ...educationExtras("analyzer", { receiptForRun: receiptForRun ?? null, projectUrl }),
     };
 
+    const minimalNodes = [targetNode, analyzerNode];
+    applySecretsExposedToTarget(minimalNodes, secretsFindingsCount);
+
     return finalizeEvidenceModel({
       runId: String(runId),
       targetName: displayTarget,
@@ -337,7 +375,7 @@ export function buildEvidenceChainModel(input: {
       gapsDetected: verification.gapsCount,
       anomaliesDetected: verification.anomaliesCount,
       exportAvailable: false,
-      nodes: [targetNode, analyzerNode],
+      nodes: minimalNodes,
       edges: [
         {
           id: "e0",
@@ -348,6 +386,7 @@ export function buildEvidenceChainModel(input: {
           pulseOrder: 0,
         },
       ],
+      keyStatuses,
     });
   }
 
@@ -549,6 +588,8 @@ export function buildEvidenceChainModel(input: {
     },
   ];
 
+  applySecretsExposedToTarget(nodes, secretsFindingsCount);
+
   return finalizeEvidenceModel({
     runId: String(runId),
     targetName: displayTarget,
@@ -563,5 +604,6 @@ export function buildEvidenceChainModel(input: {
     exportAvailable,
     nodes,
     edges,
+    keyStatuses,
   });
 }

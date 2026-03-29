@@ -48,6 +48,40 @@ describe("buildEvidenceChainModel", () => {
     expect(model.edges.every((e) => e.weight === "thick")).toBe(true);
     const link = model.nodes.find((n) => n.id === "chain-link");
     expect(link?.state).toBe("clean");
+    expect(model.keyStatuses).toEqual([]);
+  });
+
+  it("marks target exposed when secrets scan reported findings", () => {
+    const receipts = [
+      { ...baseReceipt, chainSequence: 0, runId: "10", receiptHash: "h0" },
+      { ...baseReceipt, chainSequence: 1, runId: "11", receiptHash: "h1", previousReceiptHash: "h0" },
+      { ...baseReceipt, chainSequence: 2, runId: "12", receiptHash: "h2", previousReceiptHash: "h1" },
+    ];
+    const model = buildEvidenceChainModel({
+      runId: 12,
+      projectId: 7,
+      projectName: "demo/app",
+      projectUrl: "https://github.com/demo/app",
+      chainTargetId: "tgt-1",
+      receipts,
+      verification: {
+        chainIntact: true,
+        brokenAtSequence: null,
+        gapsCount: 0,
+        anomaliesCount: 0,
+      },
+      analyzerCompleted: true,
+      analyzerFailed: false,
+      receiptForRun: receipts[2],
+      exportSigningConfigured: true,
+      usesAnalyzerJobQueue: true,
+      minimal: false,
+      secretsFindingsCount: 2,
+      keyStatuses: [],
+    });
+    const target = model.nodes.find((n) => n.id === "target");
+    expect(target?.state).toBe("exposed");
+    expect(target?.anomalies.some((a) => a.includes("TruffleHog found 2"))).toBe(true);
   });
 
   it("marks chain-link broken when verification reports a break", () => {

@@ -61,6 +61,21 @@ function cacheKey(runId: string, nodeId: string, mode: string): string {
 
 function buildUserPrompt(body: ReceptionistBody): string {
   const c = body.nodeContext;
+  if (c.state === "exposed") {
+    const detected =
+      c.anomalies?.length > 0
+        ? c.anomalies.join(", ")
+        : "potential secrets in the repository (see scan output)";
+    return `The user's repository has secrets committed to its git history. TruffleHog detected ${detected}.
+
+Explain in plain language:
+1. Why committed secrets are permanent even after deletion (git history)  
+2. What "rotation" means and why it's required even if the secret looks deleted
+3. The exact steps to rotate a leaked key (generic — they apply to any API key or credential)
+4. How to prevent this in future (git hooks, pre-commit, .gitignore for .env)
+
+Keep it calm and practical. Do not be alarmist. This is fixable.`;
+  }
   if (body.mode === "explain") {
     return `Component: ${c.label}
 Type: ${c.shape} in the ${c.layer} layer
