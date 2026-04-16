@@ -11,6 +11,8 @@ import { buildUrlSurfaceWorkspace } from "./url-surface";
 import { writeAudioIngestArtifacts } from "./audio_ingest";
 import { registerTempDir } from "./cleanup-registry";
 import { extractZipToDir, findProjectRoot } from "./zip-utils";
+import { assertResolvedPathUnderBase } from "../utils/pathSanitizer";
+import { ingestMultipartStagingDir } from "./stagingPaths";
 
 async function mkWorkDir(prefix: string): Promise<{ dir: string; dispose: () => Promise<void> }> {
   const base = process.env.CI_TMP_DIR || os.tmpdir();
@@ -166,6 +168,11 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
 
     case "zip": {
       const zipPath = path.resolve(input.filePath);
+      try {
+        assertResolvedPathUnderBase(zipPath, ingestMultipartStagingDir());
+      } catch {
+        throw new Error("Zip ingest path must be under the server upload staging directory");
+      }
       const { dir: tmp, dispose } = await mkWorkDir("debrief-zip-");
       await extractZipToDir(zipPath, tmp);
       const root = await findProjectRoot(tmp);
@@ -281,6 +288,11 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
 
     case "audio": {
       const resolved = path.resolve(input.filePath);
+      try {
+        assertResolvedPathUnderBase(resolved, ingestMultipartStagingDir());
+      } catch {
+        throw new Error("Audio ingest path must be under the server upload staging directory");
+      }
       const { dir: tmp, dispose } = await mkWorkDir("debrief-audio-");
       const { audioHash } = await writeAudioIngestArtifacts(tmp, resolved);
       await writeManifest(tmp, {

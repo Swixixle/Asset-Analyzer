@@ -3,7 +3,6 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { matchCloneAnalyzeUrl } from "@shared/cloneAnalyzeUrl";
-import os from "node:os";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -22,6 +21,7 @@ import {
   hostedHttpsGitToIngestInput,
   assertLocalPathAllowedForIngest,
 } from "./ingestion/ingest";
+import { ingestMultipartStagingDir } from "./ingestion/stagingPaths";
 import type { IngestInput, IngestResult } from "./ingestion/types";
 import { logAnalyzerEvent as logEvent } from "./analyzerLog";
 import { runProjectAnalysis } from "./runProjectAnalysis";
@@ -1041,7 +1041,7 @@ export async function registerRoutes(
     }
   });
 
-  const uploadIngestDir = path.join(os.tmpdir(), "debrief-upload");
+  const uploadIngestDir = ingestMultipartStagingDir();
   const uploadIngest = multer({
     dest: uploadIngestDir,
     limits: { fileSize: 220 * 1024 * 1024 },

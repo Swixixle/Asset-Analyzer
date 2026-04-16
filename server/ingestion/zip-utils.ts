@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createReadStream } from "node:fs";
-import unzipper from "unzipper";
+import extract from "extract-zip";
 
 const ROOT_MARKERS = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml"];
 
@@ -47,12 +46,11 @@ export async function findProjectRoot(extractRoot: string): Promise<string> {
   return best;
 }
 
+/**
+ * Extract a zip into destDir with zip-slip protection (uses extract-zip / yauzl guards).
+ */
 export async function extractZipToDir(zipPath: string, destDir: string): Promise<void> {
-  await fs.mkdir(destDir, { recursive: true });
-  await new Promise<void>((resolve, reject) => {
-    createReadStream(zipPath)
-      .pipe(unzipper.Extract({ path: destDir }))
-      .on("close", () => resolve())
-      .on("error", (err: Error) => reject(err));
-  });
+  const resolvedDest = path.resolve(destDir);
+  await fs.mkdir(resolvedDest, { recursive: true });
+  await extract(zipPath, { dir: resolvedDest });
 }
