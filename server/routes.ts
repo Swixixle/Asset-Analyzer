@@ -33,7 +33,7 @@ import { mountBillingRoutes } from "./billing/routes";
 import { mountApiKeyRoutes } from "./routes/api-keys";
 import { apiV1Router } from "./routes/api-v1";
 import { heavyLimiter, authLimiter } from "./middleware/rateLimiter";
-import { assertResolvedPathUnderBase } from "./utils/pathSanitizer";
+import { assertRealPathUnderBase } from "./utils/pathSanitizer";
 import { isHostnameUnderRoot } from "@shared/urlHost";
 
 function logAdminEvent(event: string, detail?: Record<string, unknown>) {
@@ -1102,7 +1102,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "file required (multipart field: file)" });
       }
       try {
-        assertResolvedPathUnderBase(file.path, uploadIngestDir);
+        await assertRealPathUnderBase(file.path, uploadIngestDir);
       } catch {
         await fs.unlink(file.path).catch(() => {});
         return res.status(400).json({ message: "Invalid upload path" });
@@ -1225,7 +1225,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "file required (multipart field: file)" });
       }
       try {
-        assertResolvedPathUnderBase(file.path, uploadIngestDir);
+        await assertRealPathUnderBase(file.path, uploadIngestDir);
       } catch {
         await fs.unlink(file.path).catch(() => {});
         return res.status(400).json({ message: "Invalid upload path" });

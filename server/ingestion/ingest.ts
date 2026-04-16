@@ -11,7 +11,7 @@ import { buildUrlSurfaceWorkspace } from "./url-surface";
 import { writeAudioIngestArtifacts } from "./audio_ingest";
 import { registerTempDir } from "./cleanup-registry";
 import { extractZipToDir, findProjectRoot } from "./zip-utils";
-import { assertResolvedPathUnderBase } from "../utils/pathSanitizer";
+import { assertRealPathUnderBase } from "../utils/pathSanitizer";
 import { ingestMultipartStagingDir } from "./stagingPaths";
 
 async function mkWorkDir(prefix: string): Promise<{ dir: string; dispose: () => Promise<void> }> {
@@ -169,7 +169,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
     case "zip": {
       const zipPath = path.resolve(input.filePath);
       try {
-        assertResolvedPathUnderBase(zipPath, ingestMultipartStagingDir());
+        await assertRealPathUnderBase(zipPath, ingestMultipartStagingDir());
       } catch {
         throw new Error("Zip ingest path must be under the server upload staging directory");
       }
@@ -289,7 +289,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
     case "audio": {
       const resolved = path.resolve(input.filePath);
       try {
-        assertResolvedPathUnderBase(resolved, ingestMultipartStagingDir());
+        await assertRealPathUnderBase(resolved, ingestMultipartStagingDir());
       } catch {
         throw new Error("Audio ingest path must be under the server upload staging directory");
       }
