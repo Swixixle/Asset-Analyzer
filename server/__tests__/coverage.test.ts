@@ -7,6 +7,8 @@ import { execSync } from 'child_process';
 function createTempRepo() {
   const tmp = fs.mkdtempSync(path.join(fs.realpathSync('/tmp'), 'covrepo-'));
   execSync('git init', { cwd: tmp });
+  execSync('git config user.email "test@example.com"', { cwd: tmp });
+  execSync('git config user.name "Test User"', { cwd: tmp });
   fs.mkdirSync(path.join(tmp, 'src'));
   fs.mkdirSync(path.join(tmp, 'data'));
   fs.mkdirSync(path.join(tmp, 'big'));
